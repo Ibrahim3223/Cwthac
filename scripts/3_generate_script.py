@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Video için senaryo oluşturur
+Video için Google Gemini ile senaryo oluşturur
 """
 
 import os
 import json
-from openai import OpenAI
+import google.generativeai as genai
 
 # Konfigürasyon
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+genai.configure(api_key=GEMINI_API_KEY)
+
 CACHE_DIR = 'data/cache'
 
 def load_analysis():
@@ -16,10 +18,10 @@ def load_analysis():
     with open(f'{CACHE_DIR}/analysis.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def generate_script(analysis_data):
-    """Analiz sonuçlarına göre senaryo oluştur"""
+def generate_script_with_gemini(analysis_data):
+    """Analiz sonuçlarına göre Gemini ile senaryo oluştur"""
     
-    print("📝 Video senaryosu oluşturuluyor...")
+    print("📝 Video senaryosu Gemini ile oluşturuluyor...")
     
     video_data = analysis_data['video_data']
     analysis = analysis_data['analysis']
@@ -73,20 +75,34 @@ JSON formatında döndür:
     "tags": ["tag1", "tag2", "tag3"],
     "word_count": 120
 }}
+
+SADECE JSON döndür, başka açıklama ekleme.
 """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Sen YouTube Shorts için viral senaryo yazarısın. Kısa, etkili ve akılda kalıcı içerikler üretirsin."},
-                {"role": "user", "content": script_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.8
+        # Gemini model
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            generation_config={
+                'temperature': 0.8,
+                'top_p': 0.95,
+                'top_k': 40,
+                'max_output_tokens': 2048,
+            }
         )
         
-        script = json.loads(response.choices[0].message.content)
+        response = model.generate_content(script_prompt)
+        
+        # JSON parse et
+        response_text = response.text.strip()
+        
+        # Markdown kod bloğu varsa temizle
+        if response_text.startswith('```json'):
+            response_text = response_text.replace('```json', '').replace('```', '').strip()
+        elif response_text.startswith('```'):
+            response_text = response_text.replace('```', '').strip()
+        
+        script = json.loads(response_text)
         
         # Kaynak belirtme kontrolü
         if 'kaynak' not in script['description'].lower():
@@ -95,7 +111,7 @@ JSON formatında döndür:
         print("✅ Senaryo oluşturuldu")
         print(f"📺 Başlık: {script['title']}")
         print(f"🎬 Hook: {script['hook']}")
-        print(f"🔢 Kelime Sayısı: {script['word_count']}")
+        print(f"🔢 Kelime Sayısı: {script.get('word_count', 'N/A')}")
         
         # Tam senaryoyu yazdır
         print("\n📝 TAM SENARYO:")
@@ -108,10 +124,14 @@ JSON formatında döndür:
         
         return script
         
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parse hatası: {e}")
+        print(f"Response: {response_text[:200]}")
+        raise
     except Exception as e:
         print(f"❌ Senaryo oluşturma hatası: {e}")
         raise
 
 if __name__ == '__main__':
     analysis_data = load_analysis()
-    generate_script(analysis_data)
+    generate_script_with_gemini(analysis_data)
