@@ -1,110 +1,124 @@
 #!/usr/bin/env python3
 """
-Senaryo için sesli anlatım oluşturur (TTS)
+Senaryo için Azure TTS ile sesli anlatım oluşturur
 """
 
 import os
 import json
-from elevenlabs import generate, set_api_key, Voice, VoiceSettings
-
-# Alternatif: Google TTS
-try:
-    from gtts import gTTS
-    GTTS_AVAILABLE = True
-except ImportError:
-    GTTS_AVAILABLE = False
+import azure.cognitiveservices.speech as speechsdk
 
 # Konfigürasyon
 CACHE_DIR = 'data/cache'
-ELEVENLABS_KEY = os.getenv('ELEVENLABS_API_KEY')
+AZURE_SPEECH_KEY = os.getenv('AZURE_SPEECH_KEY')
+AZURE_SPEECH_REGION = os.getenv('AZURE_SPEECH_REGION', 'westeurope')
 
 def load_script():
     """Senaryoyu yükle"""
     with open(f'{CACHE_DIR}/script.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def create_voiceover_elevenlabs(script):
-    """ElevenLabs ile profesyonel sesli anlatım"""
+def create_voiceover_azure(script):
+    """Azure Speech Service ile profesyonel Türkçe sesli anlatım"""
     
-    print("🎙️ ElevenLabs ile sesli anlatım oluşturuluyor...")
-    
-    # Full script text
-    full_text = " ".join([scene['text'] for scene in script['scenes']])
-    
-    try:
-        set_api_key(ELEVENLABS_KEY)
-        
-        # Türkçe destekleyen ses (örnek: Adam veya özel ses)
-        audio = generate(
-            text=full_text,
-            voice=Voice(
-                voice_id="pNInz6obpgDQGcFmaJgB",  # Adam (multilingual)
-                settings=VoiceSettings(
-                    stability=0.5,
-                    similarity_boost=0.75,
-                    style=0.5,
-                    use_speaker_boost=True
-                )
-            ),
-            model="eleven_multilingual_v2"
-        )
-        
-        # Kaydet
-        output_path = f'{CACHE_DIR}/voiceover.mp3'
-        with open(output_path, 'wb') as f:
-            f.write(audio)
-        
-        print(f"✅ Sesli anlatım kaydedildi: {output_path}")
-        return output_path
-        
-    except Exception as e:
-        print(f"⚠️ ElevenLabs hatası: {e}")
-        print("📢 Google TTS'e geçiliyor...")
-        return create_voiceover_gtts(script)
-
-def create_voiceover_gtts(script):
-    """Google TTS ile alternatif sesli anlatım (ücretsiz)"""
-    
-    if not GTTS_AVAILABLE:
-        print("❌ gTTS yüklü değil!")
-        raise ImportError("gTTS gerekli!")
-    
-    print("🎙️ Google TTS ile sesli anlatım oluşturuluyor...")
+    print("🎙️ Azure TTS ile sesli anlatım oluşturuluyor...")
     
     # Full script text
     full_text = " ".join([scene['text'] for scene in script['scenes']])
     
+    # Azure Speech configuration
+    speech_config = speechsdk.SpeechConfig(
+        subscription=AZURE_SPEECH_KEY,
+        region=AZURE_SPEECH_REGION
+    )
+    
+    # Türkçe ses seçimi (Erkek)
+    # Alternatifler:
+    # - tr-TR-AhmetNeural (Erkek, doğal)
+    # - tr-TR-EmelNeural (Kadın, doğal)
+    speech_config.speech_synthesis_voice_name = 'tr-TR-AhmetNeural'
+    
+    # Ses kalitesi ayarları
+    speech_config.set_speech_synthesis_output_format(
+        speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
+    )
+    
+    # Çıktı dosyası
+    output_path = f'{CACHE_DIR}/voiceover.mp3'
+    audio_config = speechsdk.audio.AudioOutputConfig(filename=output_path)
+    
+    # Speech synthesizer
+    synthesizer = speechsdk.SpeechSynthesizer(
+        speech_config=speech_config,
+        audio_config=audio_config
+    )
+    
+    # SSML ile gelişmiş kontrol (opsiyonel)
+    ssml_text = f"""
+    <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="tr-TR">
+        <voice name="tr-TR-AhmetNeural">
+            <prosody rate="1.1" pitch="+5%">
+                {full_text}
+            </prosody>
+        </voice>
+    </speak>
+    """
+    
     try:
-        tts = gTTS(text=full_text, lang='tr', slow=False)
-        output_path = f'{CACHE_DIR}/voiceover.mp3'
-        tts.save(output_path)
+        print(f"🔊 Sentezleniyor: {len(full_text)} karakter...")
         
-        print(f"✅ Sesli anlatım kaydedildi: {output_path}")
-        return output_path
+        # SSML ile sentez
+        result = synthesizer.speak_ssml_async(ssml_text).get()
+        
+        # Sonuç kontrolü
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            print(f"✅ Sesli anlatım kaydedildi: {output_path}")
+            
+            # Metadata kaydet
+            with open(f'{CACHE_DIR}/voiceover_info.json', 'w') as f:
+                json.dump({
+                    'path': output_path,
+                    'method': 'azure_tts',
+                    'voice': 'tr-TR-AhmetNeural',
+                    'region': AZURE_SPEECH_REGION,
+                    'text_length': len(full_text)
+                }, f, indent=2)
+            
+            return output_path
+            
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            print(f"❌ Sentez iptal edildi: {cancellation_details.reason}")
+            
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print(f"❌ Hata detayı: {cancellation_details.error_details}")
+            
+            raise Exception(f"Azure TTS hatası: {cancellation_details.reason}")
         
     except Exception as e:
-        print(f"❌ Google TTS hatası: {e}")
+        print(f"❌ Azure TTS hatası: {e}")
         raise
 
-def create_voiceover(script):
-    """Ana TTS fonksiyonu - önce ElevenLabs dene, sonra Google TTS"""
+def get_available_voices():
+    """Kullanılabilir Türkçe sesleri listele (debug için)"""
     
-    if ELEVENLABS_KEY:
-        try:
-            return create_voiceover_elevenlabs(script)
-        except:
-            pass
+    speech_config = speechsdk.SpeechConfig(
+        subscription=AZURE_SPEECH_KEY,
+        region=AZURE_SPEECH_REGION
+    )
     
-    # Fallback to Google TTS
-    return create_voiceover_gtts(script)
+    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
+    
+    result = synthesizer.get_voices_async("tr-TR").get()
+    
+    print("\n🎤 Kullanılabilir Türkçe Sesler:")
+    for voice in result.voices:
+        print(f"- {voice.short_name} ({voice.gender}): {voice.local_name}")
 
 if __name__ == '__main__':
-    script = load_script()
-    voiceover_path = create_voiceover(script)
-    
-    # Metadata kaydet
-    with open(f'{CACHE_DIR}/voiceover_info.json', 'w') as f:
-        json.dump({
-            'path': voiceover_path,
-            'method': 'elevenlabs' if ELEVENLABS_KEY else 'gtts'
-        }, f)
+    # Debug modda sesleri listele
+    if os.getenv('DEBUG_VOICES') == 'true':
+        get_available_voices()
+    else:
+        script = load_script()
+        voiceover_path = create_voiceover_azure(script)
+        print(f"\n🎉 Voiceover hazır: {voiceover_path}")
