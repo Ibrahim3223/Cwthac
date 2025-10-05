@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Viral videoyu AI ile analiz eder
+Viral videoyu Google Gemini ile analiz eder
 """
 
 import os
 import json
-from openai import OpenAI
+import google.generativeai as genai
 
 # Konfigürasyon
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+genai.configure(api_key=GEMINI_API_KEY)
+
 CACHE_DIR = 'data/cache'
 
 def load_video_data():
@@ -16,10 +18,10 @@ def load_video_data():
     with open(f'{CACHE_DIR}/selected_video.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def analyze_with_ai(video_data):
-    """Video verilerini AI ile analiz et"""
+def analyze_with_gemini(video_data):
+    """Video verilerini Gemini ile analiz et"""
     
-    print("🧠 Video AI ile analiz ediliyor...")
+    print("🧠 Video Gemini AI ile analiz ediliyor...")
     
     analysis_prompt = f"""
 Sen bir YouTube viral içerik analiz uzmanısın. Aşağıdaki viral YouTube Shorts videosunu analiz et.
@@ -58,22 +60,36 @@ JSON formatında döndür:
     "virality_score": 85,
     "key_takeaway": "İçerik üreticiler için en önemli ders (1-2 cümle)"
 }}
+
+SADECE JSON döndür, başka açıklama ekleme.
 """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Sen bir YouTube viral içerik analiz uzmanısın. JSON formatında detaylı analizler yaparsın."},
-                {"role": "user", "content": analysis_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.7
+        # Gemini model
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            generation_config={
+                'temperature': 0.7,
+                'top_p': 0.95,
+                'top_k': 40,
+                'max_output_tokens': 2048,
+            }
         )
         
-        analysis = json.loads(response.choices[0].message.content)
+        response = model.generate_content(analysis_prompt)
         
-        print("✅ AI analizi tamamlandı")
+        # JSON parse et
+        response_text = response.text.strip()
+        
+        # Markdown kod bloğu varsa temizle
+        if response_text.startswith('```json'):
+            response_text = response_text.replace('```json', '').replace('```', '').strip()
+        elif response_text.startswith('```'):
+            response_text = response_text.replace('```', '').strip()
+        
+        analysis = json.loads(response_text)
+        
+        print("✅ Gemini analizi tamamlandı")
         print(f"🎯 Ana Hook: {analysis['main_hook']}")
         print(f"📊 Virality Score: {analysis['virality_score']}/100")
         
@@ -81,7 +97,8 @@ JSON formatında döndür:
         output = {
             'video_data': video_data,
             'analysis': analysis,
-            'analyzed_at': json.dumps(None)  # Will be set by json.dump
+            'analyzed_at': None,
+            'ai_model': 'gemini-1.5-flash'
         }
         
         with open(f'{CACHE_DIR}/analysis.json', 'w', encoding='utf-8') as f:
@@ -89,10 +106,14 @@ JSON formatında döndür:
         
         return analysis
         
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parse hatası: {e}")
+        print(f"Response: {response_text[:200]}")
+        raise
     except Exception as e:
-        print(f"❌ Analiz hatası: {e}")
+        print(f"❌ Gemini analiz hatası: {e}")
         raise
 
 if __name__ == '__main__':
     video_data = load_video_data()
-    analyze_with_ai(video_data)
+    analyze_with_gemini(video_data)
