@@ -1,0 +1,97 @@
+name: YouTube Viral Video Analyzer
+
+on:
+  schedule:
+    # Her gün saat 09:00'da çalış (UTC)
+    - cron: '0 9 * * *'
+  workflow_dispatch:  # Manuel tetikleme
+    inputs:
+      video_id:
+        description: 'Specific YouTube Video ID (opsiyonel)'
+        required: false
+
+jobs:
+  analyze-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: 🎬 Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick
+          ffmpeg -version
+      
+      - name: 📚 Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🔍 Step 1: Find Viral Videos
+        id: find_videos
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          python scripts/1_find_viral_videos.py
+          echo "video_found=$(cat data/cache/video_selected.txt)" >> $GITHUB_OUTPUT
+      
+      - name: 🧠 Step 2: Analyze Video with AI
+        if: steps.find_videos.outputs.video_found == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          python scripts/2_analyze_video.py
+      
+      - name: 📝 Step 3: Generate Script
+        if: steps.find_videos.outputs.video_found == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/3_generate_script.py
+      
+      - name: 🎙️ Step 4: Create Voiceover
+        if: steps.find_videos.outputs.video_found == 'true'
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          python scripts/4_create_voiceover.py
+      
+      - name: ✂️ Step 5: Edit Video
+        if: steps.find_videos.outputs.video_found == 'true'
+        run: |
+          python scripts/5_edit_video.py
+      
+      - name: 📤 Step 6: Upload to YouTube
+        if: steps.find_videos.outputs.video_found == 'true'
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python scripts/6_upload_to_youtube.py
+      
+      - name: 📊 Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: analysis-results
+          path: |
+            data/processed/
+            data/cache/*.json
+          retention-days: 7
+      
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          rm -rf data/cache/*.mp4
+          rm -rf data/cache/*.mp3
