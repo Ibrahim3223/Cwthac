@@ -36,7 +36,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: 🔍 Step 1: Find Viral Videos
+      - name: 🔍 Step 1 - Find Viral Videos
         id: find_videos
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -44,7 +44,7 @@ jobs:
           python scripts/1_find_viral_videos.py
           echo "video_found=$(cat data/cache/video_selected.txt)" >> $GITHUB_OUTPUT
       
-      - name: 🧠 Step 2: Analyze Video with AI
+      - name: 🧠 Step 2 - Analyze Video with AI
         if: steps.find_videos.outputs.video_found == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -52,14 +52,14 @@ jobs:
         run: |
           python scripts/2_analyze_video.py
       
-      - name: 📝 Step 3: Generate Script
+      - name: 📝 Step 3 - Generate Script
         if: steps.find_videos.outputs.video_found == 'true'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python scripts/3_generate_script.py
       
-      - name: 🎙️ Step 4: Create Voiceover
+      - name: 🎙️ Step 4 - Create Voiceover
         if: steps.find_videos.outputs.video_found == 'true'
         env:
           AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
@@ -67,12 +67,12 @@ jobs:
         run: |
           python scripts/4_create_voiceover.py
       
-      - name: ✂️ Step 5: Edit Video
+      - name: ✂️ Step 5 - Edit Video
         if: steps.find_videos.outputs.video_found == 'true'
         run: |
           python scripts/5_edit_video.py
       
-      - name: 📤 Step 6: Upload to YouTube
+      - name: 📤 Step 6 - Upload to YouTube
         if: steps.find_videos.outputs.video_found == 'true'
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
