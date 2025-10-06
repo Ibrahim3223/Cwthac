@@ -67,7 +67,7 @@ RETURN ONLY JSON, no other text.
     try:
         # Gemini model
         model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash-exp',  # Updated model name
+            model_name='gemini-2.0-flash-exp',
             generation_config={
                 'temperature': 0.7,
                 'top_p': 0.95,
@@ -98,7 +98,7 @@ RETURN ONLY JSON, no other text.
             'video_data': video_data,
             'analysis': analysis,
             'analyzed_at': None,
-            'ai_model': 'gemini-1.5-flash'
+            'ai_model': 'gemini-2.0-flash-exp'
         }
         
         with open(f'{CACHE_DIR}/analysis.json', 'w', encoding='utf-8') as f:
