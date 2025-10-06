@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Senaryo için Azure TTS ile sesli anlatım oluşturur
+Senaryo için TTS ile sesli anlatım oluşturur
 """
 
 import os
 import json
-import azure.cognitiveservices.speech as speechsdk
 
 # Konfigürasyon
 CACHE_DIR = 'data/cache'
@@ -17,65 +16,99 @@ def load_script():
     with open(f'{CACHE_DIR}/script.json', 'r', encoding='utf-8') as f:
         return json.load(f)
 
-def create_voiceover_azure(script):
-    """Azure Speech Service ile profesyonel İngilizce sesli anlatım"""
+def create_voiceover_gtts(script):
+    """Google TTS ile sesli anlatım (fallback)"""
     
-    print("🎙️ Azure TTS ile sesli anlatım oluşturuluyor...")
+    print("🎙️ Google TTS ile sesli anlatım oluşturuluyor...")
+    
+    try:
+        from gtts import gTTS
+    except ImportError:
+        print("❌ gTTS yüklü değil, yükleniyor...")
+        import subprocess
+        subprocess.check_call(['pip', 'install', 'gtts'])
+        from gtts import gTTS
     
     # Full script text
     full_text = " ".join([scene['text'] for scene in script['scenes']])
     
-    # Azure Speech configuration
-    speech_config = speechsdk.SpeechConfig(
-        subscription=AZURE_SPEECH_KEY,
-        region=AZURE_SPEECH_REGION
-    )
+    try:
+        # English TTS
+        tts = gTTS(text=full_text, lang='en', slow=False)
+        output_path = f'{CACHE_DIR}/voiceover.mp3'
+        tts.save(output_path)
+        
+        print(f"✅ Sesli anlatım kaydedildi: {output_path}")
+        
+        # Metadata kaydet
+        with open(f'{CACHE_DIR}/voiceover_info.json', 'w') as f:
+            json.dump({
+                'path': output_path,
+                'method': 'google_tts',
+                'language': 'en',
+                'text_length': len(full_text)
+            }, f, indent=2)
+        
+        return output_path
+        
+    except Exception as e:
+        print(f"❌ Google TTS hatası: {e}")
+        raise
+
+def create_voiceover_azure(script):
+    """Azure Speech Service ile profesyonel İngilizce sesli anlatım"""
     
-    # English voice (Male)
-    # Alternatives:
-    # - en-US-GuyNeural (Male, natural, conversational)
-    # - en-US-JennyNeural (Female, friendly)
-    # - en-GB-RyanNeural (British Male)
-    # - en-US-DavisNeural (Male, energetic)
-    speech_config.speech_synthesis_voice_name = 'en-US-GuyNeural'
-    
-    # Ses kalitesi ayarları
-    speech_config.set_speech_synthesis_output_format(
-        speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
-    )
-    
-    # Çıktı dosyası
-    output_path = f'{CACHE_DIR}/voiceover.mp3'
-    audio_config = speechsdk.audio.AudioOutputConfig(filename=output_path)
-    
-    # Speech synthesizer
-    synthesizer = speechsdk.SpeechSynthesizer(
-        speech_config=speech_config,
-        audio_config=audio_config
-    )
-    
-    # SSML with advanced control (optional)
-    ssml_text = f"""
-    <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="en-US-GuyNeural">
-            <prosody rate="1.1" pitch="+5%">
-                {full_text}
-            </prosody>
-        </voice>
-    </speak>
-    """
+    print("🎙️ Azure TTS deneniyor...")
     
     try:
-        print(f"🔊 Sentezleniyor: {len(full_text)} karakter...")
+        import azure.cognitiveservices.speech as speechsdk
+    except ImportError:
+        print("⚠️ Azure SDK yüklü değil, Google TTS kullanılacak")
+        return None
+    
+    if not AZURE_SPEECH_KEY:
+        print("⚠️ Azure key eksik, Google TTS kullanılacak")
+        return None
+    
+    # Full script text
+    full_text = " ".join([scene['text'] for scene in script['scenes']])
+    
+    try:
+        # Azure Speech configuration
+        speech_config = speechsdk.SpeechConfig(
+            subscription=AZURE_SPEECH_KEY,
+            region=AZURE_SPEECH_REGION
+        )
         
-        # SSML ile sentez
+        speech_config.speech_synthesis_voice_name = 'en-US-GuyNeural'
+        speech_config.set_speech_synthesis_output_format(
+            speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
+        )
+        
+        output_path = f'{CACHE_DIR}/voiceover.mp3'
+        audio_config = speechsdk.audio.AudioOutputConfig(filename=output_path)
+        
+        synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=speech_config,
+            audio_config=audio_config
+        )
+        
+        ssml_text = f"""
+        <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+            <voice name="en-US-GuyNeural">
+                <prosody rate="1.1" pitch="+5%">
+                    {full_text}
+                </prosody>
+            </voice>
+        </speak>
+        """
+        
+        print(f"🔊 Sentezleniyor: {len(full_text)} karakter...")
         result = synthesizer.speak_ssml_async(ssml_text).get()
         
-        # Sonuç kontrolü
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            print(f"✅ Sesli anlatım kaydedildi: {output_path}")
+            print(f"✅ Azure TTS başarılı: {output_path}")
             
-            # Metadata kaydet
             with open(f'{CACHE_DIR}/voiceover_info.json', 'w') as f:
                 json.dump({
                     'path': output_path,
@@ -86,41 +119,28 @@ def create_voiceover_azure(script):
                 }, f, indent=2)
             
             return output_path
+        else:
+            print(f"⚠️ Azure TTS başarısız, Google TTS'e geçiliyor")
+            return None
             
-        elif result.reason == speechsdk.ResultReason.Canceled:
-            cancellation_details = result.cancellation_details
-            print(f"❌ Sentez iptal edildi: {cancellation_details.reason}")
-            
-            if cancellation_details.reason == speechsdk.CancellationReason.Error:
-                print(f"❌ Hata detayı: {cancellation_details.error_details}")
-            
-            raise Exception(f"Azure TTS hatası: {cancellation_details.reason}")
-        
     except Exception as e:
-        print(f"❌ Azure TTS hatası: {e}")
-        raise
+        print(f"⚠️ Azure TTS hatası: {e}")
+        print("📢 Google TTS'e geçiliyor...")
+        return None
 
-def get_available_voices():
-    """Kullanılabilir İngilizce sesleri listele (debug için)"""
+def create_voiceover(script):
+    """Ana TTS fonksiyonu - önce Azure dene, sonra Google TTS"""
     
-    speech_config = speechsdk.SpeechConfig(
-        subscription=AZURE_SPEECH_KEY,
-        region=AZURE_SPEECH_REGION
-    )
+    # Önce Azure dene
+    if AZURE_SPEECH_KEY:
+        result = create_voiceover_azure(script)
+        if result:
+            return result
     
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
-    
-    result = synthesizer.get_voices_async("en-US").get()
-    
-    print("\n🎤 Available English Voices:")
-    for voice in result.voices:
-        print(f"- {voice.short_name} ({voice.gender}): {voice.local_name}")
+    # Azure başarısız olduysa veya key yoksa Google TTS kullan
+    return create_voiceover_gtts(script)
 
 if __name__ == '__main__':
-    # Debug modda sesleri listele
-    if os.getenv('DEBUG_VOICES') == 'true':
-        get_available_voices()
-    else:
-        script = load_script()
-        voiceover_path = create_voiceover_azure(script)
-        print(f"\n🎉 Voiceover hazır: {voiceover_path}")
+    script = load_script()
+    voiceover_path = create_voiceover(script)
+    print(f"\n🎉 Voiceover hazır: {voiceover_path}")
