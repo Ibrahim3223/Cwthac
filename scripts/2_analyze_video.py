@@ -24,50 +24,50 @@ def analyze_with_gemini(video_data):
     print("🧠 Video Gemini AI ile analiz ediliyor...")
     
     analysis_prompt = f"""
-Sen bir YouTube viral içerik analiz uzmanısın. Aşağıdaki viral YouTube Shorts videosunu analiz et.
+You are a YouTube viral content analysis expert. Analyze the following viral YouTube Shorts video.
 
-VIDEO BİLGİLERİ:
-- Başlık: {video_data['title']}
-- Açıklama: {video_data['description'][:500]}
-- Kanal: {video_data['channel_title']}
-- İzlenme: {video_data['view_count']:,}
-- Beğeni: {video_data['like_count']:,}
-- Yorum: {video_data['comment_count']:,}
+VIDEO INFORMATION:
+- Title: {video_data['title']}
+- Description: {video_data['description'][:500]}
+- Channel: {video_data['channel_title']}
+- Views: {video_data['view_count']:,}
+- Likes: {video_data['like_count']:,}
+- Comments: {video_data['comment_count']:,}
 - Engagement Rate: {video_data['engagement_rate']}%
 
-GÖREV:
-Bu videonun neden viral olduğunu detaylı analiz et. Aşağıdaki başlıklar altında analiz yap:
+TASK:
+Analyze in detail why this video went viral. Analyze under the following headings:
 
-1. **İçerik Stratejisi** (Konu seçimi, timing, relevance)
-2. **Psikolojik Tetikleyiciler** (Duygusal çekicilik, merak, şok faktörü)
-3. **Teknik Kalite** (Başlık, thumbnail tahmini, açılış saniyesi)
-4. **Sosyal Faktörler** (Trend, virality potansiyeli, shareability)
-5. **Algoritma Optimizasyonu** (Retention, engagement sinyalleri)
+1. **Content Strategy** (Topic selection, timing, relevance)
+2. **Psychological Triggers** (Emotional appeal, curiosity, shock factor)
+3. **Technical Quality** (Title, thumbnail estimation, opening seconds)
+4. **Social Factors** (Trends, virality potential, shareability)
+5. **Algorithm Optimization** (Retention, engagement signals)
 
-Her başlık için 2-3 somut madde ver. Analiz Türkçe olsun ve içerik üretici gibi konuş.
+Provide 2-3 concrete points for each heading. Speak like a content creator.
 
-JSON formatında döndür:
+Return in JSON format:
 {{
     "viral_factors": {{
-        "content_strategy": ["madde1", "madde2", "madde3"],
-        "psychological_triggers": ["madde1", "madde2", "madde3"],
-        "technical_quality": ["madde1", "madde2", "madde3"],
-        "social_factors": ["madde1", "madde2", "madde3"],
-        "algorithm_optimization": ["madde1", "madde2", "madde3"]
+        "content_strategy": ["point1", "point2", "point3"],
+        "psychological_triggers": ["point1", "point2", "point3"],
+        "technical_quality": ["point1", "point2", "point3"],
+        "social_factors": ["point1", "point2", "point3"],
+        "algorithm_optimization": ["point1", "point2", "point3"]
     }},
-    "main_hook": "Bu videonun ana çekiciliği ne? (1 cümle)",
-    "target_audience": "Hedef kitle profili (1 cümle)",
+    "main_hook": "What is the main appeal of this video? (1 sentence)",
+    "target_audience": "Target audience profile (1 sentence)",
     "virality_score": 85,
-    "key_takeaway": "İçerik üreticiler için en önemli ders (1-2 cümle)"
+    "key_takeaway": "Most important lesson for content creators (1-2 sentences)"
 }}
 
-SADECE JSON döndür, başka açıklama ekleme.
+RETURN ONLY JSON, no other text.
 """
     
     try:
         # Gemini model
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-2.0-flash-exp',  # Updated model name
             generation_config={
                 'temperature': 0.7,
                 'top_p': 0.95,
