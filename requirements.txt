@@ -16,6 +16,7 @@ opencv-python-headless==4.8.1.78
 
 # Ses İşleme
 pydub==0.25.1
+gtts==2.4.0
 
 # HTTP İstekleri
 requests==2.31.0
