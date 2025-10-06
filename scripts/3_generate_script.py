@@ -27,62 +27,62 @@ def generate_script_with_gemini(analysis_data):
     analysis = analysis_data['analysis']
     
     script_prompt = f"""
-Sen bir YouTube Shorts senaryo yazarısın. Aşağıdaki viral video analizine dayanarak 45-50 saniye uzunluğunda bir analiz videosu senaryosu yaz.
+You are a YouTube Shorts scriptwriter. Based on the following viral video analysis, write a 45-50 second analysis video script.
 
-ORIJINAL VIDEO:
-- Başlık: {video_data['title']}
-- Kanal: {video_data['channel_title']}
-- İzlenme: {video_data['view_count']:,}
+ORIGINAL VIDEO:
+- Title: {video_data['title']}
+- Channel: {video_data['channel_title']}
+- Views: {video_data['view_count']:,}
 
-ANALİZ SONUÇLARI:
-- Ana Hook: {analysis['main_hook']}
+ANALYSIS RESULTS:
+- Main Hook: {analysis['main_hook']}
 - Virality Score: {analysis['virality_score']}/100
 - Key Takeaway: {analysis['key_takeaway']}
 
-SENARYO KURALLARI:
-1. İlk 3 saniye: Dikkat çekici açılış (hook)
-2. 5-25 saniye: Videonun ne yaptığını açıkla
-3. 25-40 saniye: NEDEN viral olduğunu açıkla (2-3 ana neden)
-4. 40-50 saniye: CTA ve değer önerisi
+SCRIPT RULES:
+1. First 3 seconds: Attention-grabbing opening (hook)
+2. 5-25 seconds: Explain what the video does
+3. 25-40 seconds: Explain WHY it went viral (2-3 main reasons)
+4. 40-50 seconds: CTA and value proposition
 
-DİL VE TON:
-- Genç, dinamik, samimi
-- Jargon kullanma, basit Türkçe
-- Heyecan verici ama abartısız
-- "Şimdi bu videoyu izleyin" değil, "Bu video şu yüzden patladı" tarzı
+LANGUAGE & TONE:
+- Young, dynamic, authentic
+- No jargon, simple English
+- Exciting but not exaggerated
+- Not "watch this video now" but "here's why this video exploded" style
 
 FORMAT:
-Her cümle için timing belirt.
+Specify timing for each sentence.
 
-JSON formatında döndür:
+Return in JSON format:
 {{
-    "title": "Video başlığı (max 80 karakter, merak uyandıran)",
-    "hook": "İlk 3 saniye söylenecek cümle",
+    "title": "Video title (max 80 characters, curiosity-inducing)",
+    "hook": "First 3 seconds sentence",
     "scenes": [
         {{
             "timing": "0-3",
-            "text": "Hook cümlesi",
-            "visual_note": "Ekranda ne gösterilecek"
+            "text": "Hook sentence",
+            "visual_note": "What to show on screen"
         }},
         {{
             "timing": "3-8",
-            "text": "İkinci bölüm",
-            "visual_note": "Visual açıklama"
+            "text": "Second part",
+            "visual_note": "Visual description"
         }}
-        // ... toplam 45-50 saniye
+        // ... total 45-50 seconds
     ],
-    "description": "YouTube açıklama metni (kaynak belirtmeyi unutma!)",
+    "description": "YouTube description text (don't forget to credit the source!)",
     "tags": ["tag1", "tag2", "tag3"],
     "word_count": 120
 }}
 
-SADECE JSON döndür, başka açıklama ekleme.
+RETURN ONLY JSON, no other text.
 """
     
     try:
         # Gemini model
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-2.0-flash-exp',
             generation_config={
                 'temperature': 0.8,
                 'top_p': 0.95,
@@ -105,8 +105,8 @@ SADECE JSON döndür, başka açıklama ekleme.
         script = json.loads(response_text)
         
         # Kaynak belirtme kontrolü
-        if 'kaynak' not in script['description'].lower():
-            script['description'] += f"\n\n📌 Kaynak Video: https://youtube.com/watch?v={video_data['video_id']}\n👤 Orijinal Kanal: {video_data['channel_title']}\n\n⚠️ Bu video eğitim ve analiz amaçlıdır. Fair use kapsamındadır."
+        if 'source' not in script['description'].lower() and 'credit' not in script['description'].lower():
+            script['description'] += f"\n\n📌 Source Video: https://youtube.com/watch?v={video_data['video_id']}\n👤 Original Channel: {video_data['channel_title']}\n\n⚠️ This video is for educational and analysis purposes. Fair use."
         
         print("✅ Senaryo oluşturuldu")
         print(f"📺 Başlık: {script['title']}")
@@ -114,7 +114,7 @@ SADECE JSON döndür, başka açıklama ekleme.
         print(f"🔢 Kelime Sayısı: {script.get('word_count', 'N/A')}")
         
         # Tam senaryoyu yazdır
-        print("\n📝 TAM SENARYO:")
+        print("\n📝 FULL SCRIPT:")
         for scene in script['scenes']:
             print(f"[{scene['timing']}s] {scene['text']}")
         
