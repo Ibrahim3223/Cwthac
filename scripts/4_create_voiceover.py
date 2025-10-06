@@ -18,7 +18,7 @@ def load_script():
         return json.load(f)
 
 def create_voiceover_azure(script):
-    """Azure Speech Service ile profesyonel Türkçe sesli anlatım"""
+    """Azure Speech Service ile profesyonel İngilizce sesli anlatım"""
     
     print("🎙️ Azure TTS ile sesli anlatım oluşturuluyor...")
     
@@ -31,11 +31,13 @@ def create_voiceover_azure(script):
         region=AZURE_SPEECH_REGION
     )
     
-    # Türkçe ses seçimi (Erkek)
-    # Alternatifler:
-    # - tr-TR-AhmetNeural (Erkek, doğal)
-    # - tr-TR-EmelNeural (Kadın, doğal)
-    speech_config.speech_synthesis_voice_name = 'tr-TR-AhmetNeural'
+    # English voice (Male)
+    # Alternatives:
+    # - en-US-GuyNeural (Male, natural, conversational)
+    # - en-US-JennyNeural (Female, friendly)
+    # - en-GB-RyanNeural (British Male)
+    # - en-US-DavisNeural (Male, energetic)
+    speech_config.speech_synthesis_voice_name = 'en-US-GuyNeural'
     
     # Ses kalitesi ayarları
     speech_config.set_speech_synthesis_output_format(
@@ -52,10 +54,10 @@ def create_voiceover_azure(script):
         audio_config=audio_config
     )
     
-    # SSML ile gelişmiş kontrol (opsiyonel)
+    # SSML with advanced control (optional)
     ssml_text = f"""
-    <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="tr-TR">
-        <voice name="tr-TR-AhmetNeural">
+    <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+        <voice name="en-US-GuyNeural">
             <prosody rate="1.1" pitch="+5%">
                 {full_text}
             </prosody>
@@ -78,7 +80,7 @@ def create_voiceover_azure(script):
                 json.dump({
                     'path': output_path,
                     'method': 'azure_tts',
-                    'voice': 'tr-TR-AhmetNeural',
+                    'voice': 'en-US-GuyNeural',
                     'region': AZURE_SPEECH_REGION,
                     'text_length': len(full_text)
                 }, f, indent=2)
@@ -99,7 +101,7 @@ def create_voiceover_azure(script):
         raise
 
 def get_available_voices():
-    """Kullanılabilir Türkçe sesleri listele (debug için)"""
+    """Kullanılabilir İngilizce sesleri listele (debug için)"""
     
     speech_config = speechsdk.SpeechConfig(
         subscription=AZURE_SPEECH_KEY,
@@ -108,9 +110,9 @@ def get_available_voices():
     
     synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
     
-    result = synthesizer.get_voices_async("tr-TR").get()
+    result = synthesizer.get_voices_async("en-US").get()
     
-    print("\n🎤 Kullanılabilir Türkçe Sesler:")
+    print("\n🎤 Available English Voices:")
     for voice in result.voices:
         print(f"- {voice.short_name} ({voice.gender}): {voice.local_name}")
 
