@@ -43,6 +43,7 @@ def find_viral_shorts():
     
     search_queries = [
         {
+            'part': 'id,snippet',  # ← ÖNEMLİ: part parametresi
             'q': '#shorts viral',
             'publishedAfter': published_after_week,
             'type': 'video',
@@ -50,14 +51,16 @@ def find_viral_shorts():
             'maxResults': 50
         },
         {
-            'q': 'shorts',
+            'part': 'id,snippet',  # ← ÖNEMLİ: part parametresi
+            'q': 'shorts trending',
             'publishedAfter': published_after_week,
             'type': 'video',
             'order': 'viewCount',
             'maxResults': 50,
-            'regionCode': 'TR'
+            'relevanceLanguage': 'en'  # İngilizce içerik
         },
         {
+            'part': 'id,snippet',  # ← ÖNEMLİ: part parametresi
             'q': '#shorts',
             'publishedAfter': published_after_week,
             'type': 'video',
